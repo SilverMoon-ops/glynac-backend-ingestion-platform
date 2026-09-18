@@ -1,0 +1,56 @@
+<!doctype html>
+<html>
+  <head>
+    <title>Salesforce Bulk API Ingestion Console</title>
+    <style>
+      body {
+        font-family: monospace;
+        background: #121212;
+        color: #00ff66;
+        padding: 20px;
+      }
+      button {
+        background: #00ff66;
+        color: #000;
+        border: none;
+        padding: 10px 20px;
+        font-weight: bold;
+        cursor: pointer;
+      }
+      .card {
+        border: 1px solid #333;
+        padding: 15px;
+        margin-top: 15px;
+        background: #1e1e1e;
+      }
+    </style>
+  </head>
+  <body>
+    <h1>Salesforce Bulk API Ingestion Console</h1>
+    <button onclick="triggerSync()">Trigger Bulk Sync (10 Objects)</button>
+    <h2>Job History</h2>
+    <div id="logs"></div>
+
+    <script>
+      async function triggerSync() {
+        await fetch("/api/sync", { method: "POST" });
+        loadLogs();
+      }
+      async function loadLogs() {
+        const res = await fetch("/api/status");
+        const data = await res.json();
+        document.getElementById("logs").innerHTML = data.jobs
+          .map(
+            (j) => `
+        <div class="card">
+          <p><strong>Status:</strong> ${j.status} | <strong>Time:</strong> ${j.timestamp}</p>
+          <pre>${JSON.stringify(j.details, null, 2)}</pre>
+        </div>
+      `,
+          )
+          .join("");
+      }
+      loadLogs();
+    </script>
+  </body>
+</html>

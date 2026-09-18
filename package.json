@@ -1,0 +1,15 @@
+{
+  "name": "glynac-backend-ingestion-platform",
+  "version": "1.0.0",
+  "description": "Salesforce Bulk API Ingestion Service & UI",
+  "main": "src/ui/server.js",
+  "scripts": {
+    "start": "node src/ui/server.js"
+  },
+  "dependencies": {
+    "@clickhouse/client": "^1.1.0",
+    "dotenv": "^16.4.5",
+    "express": "^4.19.2",
+    "minio": "^8.0.0"
+  }
+}

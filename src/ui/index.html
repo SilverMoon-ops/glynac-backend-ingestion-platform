@@ -8,6 +8,8 @@
         background: #121212;
         color: #00ff66;
         padding: 20px;
+        max-width: 900px;
+        margin: 0 auto;
       }
       button {
         background: #00ff66;
@@ -16,6 +18,21 @@
         padding: 10px 20px;
         font-weight: bold;
         cursor: pointer;
+        font-family: inherit;
+        font-size: 14px;
+      }
+      button:disabled {
+        background: #2a2a2a;
+        color: #666;
+        cursor: not-allowed;
+      }
+      .error-banner {
+        display: none;
+        background: #2a0f0f;
+        border: 1px solid #ff4d4d;
+        color: #ff8080;
+        padding: 10px 15px;
+        margin-top: 15px;
       }
       .card {
         border: 1px solid #333;
@@ -23,33 +40,144 @@
         margin-top: 15px;
         background: #1e1e1e;
       }
+      .card-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 10px;
+      }
+      .badge {
+        padding: 3px 10px;
+        font-size: 12px;
+        font-weight: bold;
+        border-radius: 3px;
+        text-transform: uppercase;
+      }
+      .badge-success { background: #003d1a; color: #00ff66; }
+      .badge-partial { background: #3d2f00; color: #ffcc00; }
+      .badge-failed  { background: #3d0000; color: #ff4d4d; }
+
+      table {
+        width: 100%;
+        border-collapse: collapse;
+        font-size: 13px;
+      }
+      th, td {
+        text-align: left;
+        padding: 6px 8px;
+        border-bottom: 1px solid #2a2a2a;
+      }
+      th {
+        color: #888;
+        font-weight: normal;
+      }
+      .row-success { color: #00ff66; }
+      .row-failed  { color: #ff4d4d; }
+      .timestamp { color: #888; font-size: 12px; }
+      .empty-state { color: #666; margin-top: 15px; }
     </style>
   </head>
   <body>
     <h1>Salesforce Bulk API Ingestion Console</h1>
-    <button onclick="triggerSync()">Trigger Bulk Sync (10 Objects)</button>
+    <button id="syncBtn" onclick="triggerSync()">Trigger Bulk Sync (10 Objects)</button>
+    <div id="errorBanner" class="error-banner"></div>
+
     <h2>Job History</h2>
     <div id="logs"></div>
 
     <script>
+      const syncBtn = document.getElementById("syncBtn");
+      const errorBanner = document.getElementById("errorBanner");
+
+      function showError(message) {
+        errorBanner.textContent = message;
+        errorBanner.style.display = "block";
+      }
+
+      function clearError() {
+        errorBanner.style.display = "none";
+        errorBanner.textContent = "";
+      }
+
+      function setSyncing(isSyncing) {
+        syncBtn.disabled = isSyncing;
+        syncBtn.textContent = isSyncing
+          ? "Syncing..."
+          : "Trigger Bulk Sync (10 Objects)";
+      }
+
+      function badgeClass(status) {
+        if (status === "success") return "badge-success";
+        if (status === "partial") return "badge-partial";
+        return "badge-failed";
+      }
+
       async function triggerSync() {
-        await fetch("/api/sync", { method: "POST" });
-        loadLogs();
+        clearError();
+        setSyncing(true);
+        try {
+          const res = await fetch("/api/sync", { method: "POST" });
+          const data = await res.json();
+          if (!res.ok || !data.success) {
+            showError(data.error || `Sync failed (HTTP ${res.status})`);
+          }
+        } catch (err) {
+          showError(`Could not reach server: ${err.message}`);
+        } finally {
+          setSyncing(false);
+          loadLogs();
+        }
       }
-      async function loadLogs() {
-        const res = await fetch("/api/status");
-        const data = await res.json();
-        document.getElementById("logs").innerHTML = data.jobs
-          .map(
-            (j) => `
-        <div class="card">
-          <p><strong>Status:</strong> ${j.status} | <strong>Time:</strong> ${j.timestamp}</p>
-          <pre>${JSON.stringify(j.details, null, 2)}</pre>
-        </div>
-      `,
-          )
+
+      function renderJob(job) {
+        const time = new Date(job.timestamp).toLocaleString();
+        const rows = job.details
+          .map((d) => {
+            const rowClass = d.status === "failed" ? "row-failed" : "row-success";
+            return `
+              <tr class="${rowClass}">
+                <td>${d.object}</td>
+                <td>${d.rows}</td>
+                <td>${d.status}</td>
+                <td>${d.status === "failed" ? d.error : (d.path || "-")}</td>
+              </tr>
+            `;
+          })
           .join("");
+
+        return `
+          <div class="card">
+            <div class="card-header">
+              <span class="timestamp">${time}</span>
+              <span class="badge ${badgeClass(job.status)}">${job.status}</span>
+            </div>
+            <table>
+              <thead>
+                <tr><th>Object</th><th>Rows</th><th>Status</th><th>Path / Error</th></tr>
+              </thead>
+              <tbody>${rows}</tbody>
+            </table>
+          </div>
+        `;
       }
+
+      async function loadLogs() {
+        try {
+          const res = await fetch("/api/status");
+          const data = await res.json();
+          setSyncing(data.isSyncRunning);
+
+          const logsEl = document.getElementById("logs");
+          if (!data.jobs || data.jobs.length === 0) {
+            logsEl.innerHTML = `<p class="empty-state">No sync jobs yet.</p>`;
+            return;
+          }
+          logsEl.innerHTML = data.jobs.map(renderJob).join("");
+        } catch (err) {
+          showError(`Could not load job history: ${err.message}`);
+        }
+      }
+
       loadLogs();
     </script>
   </body>

@@ -1,5 +1,9 @@
 # Glynac Backend Ingestion Platform (BE-1)
 
+## Demo Video
+
+Watch the 3-5 minute technical walkthrough here: [Loom Video Demo](https://www.loom.com/share/3b35b9162afd4063bb9569b207a09ded)
+
 A mock Salesforce Bulk API ingestion pipeline. Generates mock records for
 10 Salesforce object types, lands them as JSON in MinIO (S3-compatible
 object storage), then loads them into ClickHouse for analytics — with a
